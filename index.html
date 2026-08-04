@@ -243,11 +243,15 @@ body{min-height:100vh;background:
   .mini-seg button{flex:1;min-width:max-content;font-size:10px;padding:5px 7px}
   .chart-box{height:230px;min-width:0}
 
-  .lb{gap:7px}.row{gap:8px;padding:9px 8px;border-radius:11px;min-width:0}
+  .lb{gap:7px}.row{gap:8px;padding:9px 8px;border-radius:11px;min-width:0;flex-wrap:wrap}
   .badge{width:24px;min-width:24px;height:24px;font-size:11px}
   .av{width:34px;min-width:34px;height:34px}
   .who .nm{font-size:12px}.who .ro{font-size:8.5px}
-  .rs{padding-left:8px;min-width:40px}.rs .v{font-size:11px}.rs .l{font-size:7px;letter-spacing:.3px}
+  .rstats{width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--line);padding-top:8px;margin-top:2px}
+  .rs,.rs.hideM{display:block;text-align:center;padding:0 3px;min-width:0;border-left:1px solid var(--line)}
+  .rs:first-child{border-left:0}.rs .v{font-size:12px}.rs .l{font-size:7px;letter-spacing:.3px}
+  .rs.calls .v{color:var(--blue)}.rs.mtg .v{color:var(--bronze)}
+  .rs.selmetric{background:#f0f5fa;border-radius:7px;padding-top:3px;padding-bottom:3px}
   .open-hint{display:none}
 
   .ind-hd{padding:12px;gap:10px}.ind-av{width:50px;min-width:50px;height:50px;border-radius:12px;font-size:18px}
@@ -268,7 +272,7 @@ body{min-height:100vh;background:
   .wrap{padding-left:6px;padding-right:6px}.hd-logo{min-width:92px}.lg-p{font-size:14px}.hd-title{font-size:14px}
   .ll-n{font-size:10.5px}.hd-meta{max-width:125px;font-size:7.8px}
   .controls .seg button{padding-left:8px;padding-right:8px}.kpi{padding:11px 9px}.kpi-val{font-size:20px}
-  .row{gap:6px}.rs{padding-left:5px;min-width:36px}.who .nm{font-size:11px}
+  .row{gap:6px}.rs,.rs.hideM{padding-left:2px;padding-right:2px}.who .nm{font-size:11px}
 }
 </style>
 </head>
@@ -577,10 +581,10 @@ function renderLeaderboard(range){
       ${avatar(a.name)}
       <div class="who"><div class="nm">${a.name}${off?'<span class="tag-off">left</span>':''}<span class="open-hint">open →</span></div><div class="ro">${meta.role||'Sales Agent'}</div></div>
       <div class="rstats">
-        <div class="rs deals"><div class="v">${a.deals}</div><div class="l">Deals</div></div>
-        <div class="rs rev"><div class="v">${a.rev?fShort(a.rev):'—'}</div><div class="l">AED</div></div>
-        <div class="rs hideM"><div class="v">${fNum(a.calls)}</div><div class="l">Calls</div></div>
-        <div class="rs hideM"><div class="v">${a.mtg}</div><div class="l">Mtgs</div></div>
+        <div class="rs calls hideM ${state.rankMetric==='calls'?'selmetric':''}"><div class="v">${fNum(a.calls)}</div><div class="l">Calls</div></div>
+        <div class="rs mtg hideM ${state.rankMetric==='mtg'?'selmetric':''}"><div class="v">${a.mtg}</div><div class="l">Meetings</div></div>
+        <div class="rs deals ${state.rankMetric==='deals'?'selmetric':''}"><div class="v">${a.deals}</div><div class="l">Deals</div></div>
+        <div class="rs rev ${state.rankMetric==='revenue'?'selmetric':''}"><div class="v">${a.rev?fShort(a.rev):'—'}</div><div class="l">AED</div></div>
       </div></div>`;
   }).join('');
   el.querySelectorAll('.row').forEach(r=>r.onclick=()=>{state.agent=r.dataset.agent;setView('individual');});
