@@ -819,7 +819,7 @@ function sheetDate(v){
 async function loadSheetData(){
   const badge=document.getElementById('hd-updated');
   try{
-    const res=await fetch(SHEET_API,{cache:'no-store'});
+    const res=await fetch(SHEET_API+(SHEET_API.includes('?')?'&':'?')+'_='+Date.now(),{cache:'no-store'});
     if(!res.ok)throw new Error('HTTP '+res.status);
     const rows=await res.json();
     if(!Array.isArray(rows)||!rows.length)throw new Error('No KPI rows returned');
@@ -866,6 +866,16 @@ async function loadSheetData(){
   state.period='month';state.periodKey=monthKeys().slice(-1)[0];
   refreshPeriodPicker();refreshAgentPicker();render();
   loadPhotos();
+  setInterval(async()=>{
+    const period=state.period,periodKey=state.periodKey,agent=state.agent;
+    if(await loadSheetData()){
+      state.period=period;
+      const available=buildPeriods(period).map(p=>p.key);
+      state.periodKey=available.includes(periodKey)?periodKey:available[available.length-1];
+      state.agent=AGENT_NAMES.includes(agent)?agent:state.agent;
+      refreshPeriodPicker();refreshAgentPicker();render();
+    }
+  },60000);
 })();
 </script>
 
