@@ -739,7 +739,9 @@ function sheetDate(v){
   let value=String(v).trim();
   if(!/\b\d{4}\b/.test(value))value+=', 2026';
   const dt=new Date(value+' 00:00:00 UTC');
-  return Number.isNaN(dt.getTime())?null:dt.toISOString().slice(0,10);
+  if(Number.isNaN(dt.getTime()))return null;
+  dt.setUTCFullYear(2026);
+  return dt.toISOString().slice(0,10);
 }
 async function loadSheetData(){
   const badge=document.getElementById('hd-updated');
