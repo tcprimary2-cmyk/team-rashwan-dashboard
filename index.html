@@ -736,7 +736,9 @@ async function loadPhotos(){
 /* ══════════════════════ GOOGLE SHEETS LIVE DATA ══════════════════════ */
 function sheetNumber(v){const n=Number(String(v??'').replace(/[^0-9.-]/g,''));return Number.isFinite(n)?n:0;}
 function sheetDate(v){
-  const dt=new Date(String(v).trim()+' 00:00:00 UTC');
+  let value=String(v).trim();
+  if(!/\b\d{4}\b/.test(value))value+=', 2026';
+  const dt=new Date(value+' 00:00:00 UTC');
   return Number.isNaN(dt.getTime())?null:dt.toISOString().slice(0,10);
 }
 async function loadSheetData(){
