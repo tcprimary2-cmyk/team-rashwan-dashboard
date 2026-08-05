@@ -937,10 +937,13 @@ function rerenderAfterSheetRefresh(period,periodKey,agent){
   .rep-k .d{font-size:10.5px;margin-top:6px;color:#98a2b3}
   .rep-k .d b.up{color:#2f9e5b}.rep-k .d b.dn{color:#d1544d}
   .rep-h{font-size:13px;font-weight:700;color:#123a5e;margin:24px 0 10px;letter-spacing:.3px}
-  .rep-tbl{width:100%;border-collapse:collapse;font-size:12px}
+  .rep-tbl{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
   .rep-tbl th{text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#98a2b3;font-weight:600;padding:8px 10px;border-bottom:1px solid #e4e7ec}
   .rep-tbl td{padding:8px 10px;border-bottom:1px solid #eef0f3}
-  .rep-tbl td.n{text-align:right;font-variant-numeric:tabular-nums}
+  .rep-tbl th.n,.rep-tbl td.n{text-align:right;font-variant-numeric:tabular-nums}
+  .rep-agent-tbl th:nth-child(1){width:7%}
+  .rep-agent-tbl th:nth-child(2){width:28%}
+  .rep-agent-tbl th:nth-child(n+3){width:16.25%}
   .rep-tbl td.rev{color:#b5842a;font-weight:700}
   .rep-tbl tr.top td{background:#faf6ec}
   .rep-foot{margin-top:24px;padding-top:12px;border-top:1px solid #e4e7ec;font-size:10px;color:#98a2b3;text-align:center;letter-spacing:.4px}
@@ -993,7 +996,7 @@ function rerenderAfterSheetRefresh(period,periodKey,agent){
         <div class="rep-k"><div class="l">Revenue</div><div class="v" style="color:#b5842a">${fFull(agg.rev)}</div><div class="d">of ${fFull(tRev)} target${repDelta(agg.rev,prev&&prev.rev)}</div></div>
       </div>
       <div class="rep-h">Agent Leaderboard — ${opt.label}</div>
-      <table class="rep-tbl"><thead><tr><th>#</th><th>Agent</th><th class="n">Calls</th><th class="n">Meetings</th><th class="n">Deals</th><th class="n">Revenue (AED)</th></tr></thead><tbody>
+      <table class="rep-tbl rep-agent-tbl"><thead><tr><th>#</th><th>Agent</th><th class="n">Calls</th><th class="n">Meetings</th><th class="n">Deals</th><th class="n">Revenue (AED)</th></tr></thead><tbody>
       ${rows.length?rows.map((a,i)=>`<tr class="${i===0?'top':''}"><td>${i+1}</td><td>${a.name}</td><td class="n">${num(a.calls)}</td><td class="n">${num(a.mtg)}</td><td class="n">${a.deals}</td><td class="n rev">${a.rev?num(a.rev):'—'}</td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;color:#98a2b3;padding:16px">No activity in this period.</td></tr>'}
       <tr style="font-weight:700;background:#eef2f6"><td></td><td>TEAM TOTAL</td><td class="n">${num(agg.calls)}</td><td class="n">${num(agg.mtg)}</td><td class="n">${agg.deals}</td><td class="n rev">${num(agg.rev)}</td></tr>
       </tbody></table>
