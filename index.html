@@ -819,7 +819,7 @@ function sheetDate(v){
 async function loadSheetData(){
   const badge=document.getElementById('hd-updated');
   try{
-    const res=await fetch(SHEET_API+(SHEET_API.includes('?')?'&':'?')+'_='+Date.now(),{cache:'no-store'});
+    const res=await fetch(SHEET_API,{cache:'no-store'});
     if(!res.ok)throw new Error('HTTP '+res.status);
     const rows=await res.json();
     if(!Array.isArray(rows)||!rows.length)throw new Error('No KPI rows returned');
