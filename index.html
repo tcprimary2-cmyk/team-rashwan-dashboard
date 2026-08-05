@@ -816,65 +816,90 @@ function sheetDate(v){
   dt.setUTCFullYear(2026);
   return dt.toISOString().slice(0,10);
 }
+const SHEET_CACHE_KEY='team-rashwan-kpi-cache-v1';
+let sheetRefreshInFlight=false;
+
+function applySheetRows(rows,source='live'){
+  if(!Array.isArray(rows)||!rows.length)throw new Error('No KPI rows returned');
+  const mapped=rows.map(r=>({
+    d:sheetDate(r.Date),n:String(r.Broker||'').trim(),c:sheetNumber(r['Total Calls']),
+    m:sheetNumber(r.Meetings),k:sheetNumber(r['Closed Deal']),l:sheetNumber(r['Active Leads']),
+    revenue:sheetNumber(r['AED Revenue'])
+  })).filter(r=>r.d&&r.n);
+  if(!mapped.length)throw new Error('No valid KPI rows returned');
+
+  DAILY=mapped.map(({d,n,c,m,k,l})=>({d,n,c,m,k,l})).sort((a,b)=>a.d.localeCompare(b.d)||a.n.localeCompare(b.n));
+  DEALS=[];
+  mapped.forEach(r=>{for(let i=0;i<r.k;i++)DEALS.push({date:r.d,name:r.n,aed:i===0?r.revenue:0,confirmed:true});});
+
+  const previous=new Map(ROSTER.map(r=>[r.name.toLowerCase(),r]));
+  const latestByName=new Map();
+  mapped.forEach(r=>{if(!latestByName.has(r.n)||r.d>latestByName.get(r.n))latestByName.set(r.n,r.d);});
+  ROSTER=[...latestByName.entries()].map(([name,last])=>{
+    const old=previous.get(name.toLowerCase());const dt=parseD(last);
+    return {name,active:old?old.active:true,lastActive:MON[dt.getUTCMonth()],...(old&&old.role?{role:old.role}:{})};
+  }).sort((a,b)=>a.name.localeCompare(b.name));
+  const leader=[...previous.values()].find(r=>r.role==='Team Leader');
+  if(leader&&!ROSTER.some(r=>r.name.toLowerCase()===leader.name.toLowerCase()))ROSTER.push(leader);
+  AGENT_NAMES=ROSTER.map(r=>r.name);
+  ROSTER.forEach(r=>{AGENT_META[r.name]={photo:PHOTOS[r.name]||AGENT_META[r.name]?.photo||null,role:r.role||(r.active?'Sales Agent':'Former Agent'),active:r.active,lastActive:r.lastActive};});
+
+  allDates=DAILY.map(r=>r.d).concat(DEALS.map(d=>d.date)).sort();
+  MIND=parseD(allDates[0]);MAXD=parseD(allDates[allDates.length-1]);
+  CFG.lastDataDate=DAILY[DAILY.length-1].d;
+  const badge=document.getElementById('hd-updated');
+  const dateLabel=new Date(CFG.lastDataDate+'T00:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  badge.textContent=source==='live'?'Live · Data to '+dateLabel:'Loading latest data · showing saved data to '+dateLabel;
+  badge.title=source==='live'?'Connected to Google Sheets':'Complete saved data is displayed while Google Sheets refreshes';
+}
+
 async function loadSheetData(){
+  if(sheetRefreshInFlight)return false;
+  sheetRefreshInFlight=true;
   const badge=document.getElementById('hd-updated');
   try{
     const res=await fetch(SHEET_API,{cache:'no-store'});
     if(!res.ok)throw new Error('HTTP '+res.status);
     const rows=await res.json();
-    if(!Array.isArray(rows)||!rows.length)throw new Error('No KPI rows returned');
-    const mapped=rows.map(r=>({
-      d:sheetDate(r.Date),n:String(r.Broker||'').trim(),c:sheetNumber(r['Total Calls']),
-      m:sheetNumber(r.Meetings),k:sheetNumber(r['Closed Deal']),l:sheetNumber(r['Active Leads']),
-      revenue:sheetNumber(r['AED Revenue'])
-    })).filter(r=>r.d&&r.n);
-    if(!mapped.length)throw new Error('No valid KPI rows returned');
-
-    DAILY=mapped.map(({d,n,c,m,k,l})=>({d,n,c,m,k,l})).sort((a,b)=>a.d.localeCompare(b.d)||a.n.localeCompare(b.n));
-    DEALS=[];
-    mapped.forEach(r=>{for(let i=0;i<r.k;i++)DEALS.push({date:r.d,name:r.n,aed:i===0?r.revenue:0,confirmed:true});});
-
-    const previous=new Map(ROSTER.map(r=>[r.name.toLowerCase(),r]));
-    const latestByName=new Map();
-    mapped.forEach(r=>{if(!latestByName.has(r.n)||r.d>latestByName.get(r.n))latestByName.set(r.n,r.d);});
-    ROSTER=[...latestByName.entries()].map(([name,last])=>{
-      const old=previous.get(name.toLowerCase());const dt=parseD(last);
-      return {name,active:old?old.active:true,lastActive:MON[dt.getUTCMonth()],...(old&&old.role?{role:old.role}:{})};
-    }).sort((a,b)=>a.name.localeCompare(b.name));
-    const leader=[...previous.values()].find(r=>r.role==='Team Leader');
-    if(leader&&!ROSTER.some(r=>r.name.toLowerCase()===leader.name.toLowerCase()))ROSTER.push(leader);
-    AGENT_NAMES=ROSTER.map(r=>r.name);
-    ROSTER.forEach(r=>{AGENT_META[r.name]={photo:PHOTOS[r.name]||AGENT_META[r.name]?.photo||null,role:r.role||(r.active?'Sales Agent':'Former Agent'),active:r.active,lastActive:r.lastActive};});
-
-    allDates=DAILY.map(r=>r.d).concat(DEALS.map(d=>d.date)).sort();
-    MIND=parseD(allDates[0]);MAXD=parseD(allDates[allDates.length-1]);
-    CFG.lastDataDate=DAILY[DAILY.length-1].d;
-    badge.textContent='Live · Data to '+new Date(CFG.lastDataDate+'T00:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
-    badge.title='Connected to Google Sheets';
+    applySheetRows(rows,'live');
+    try{localStorage.setItem(SHEET_CACHE_KEY,JSON.stringify({rows,savedAt:Date.now()}));}catch(_){}
     return true;
   }catch(err){
-    badge.textContent='Saved data · live connection unavailable';
+    badge.textContent='Saved data · reconnecting to Google Sheets';
     badge.title=err.message;
     return false;
+  }finally{
+    sheetRefreshInFlight=false;
   }
+}
+
+function rerenderAfterSheetRefresh(period,periodKey,agent){
+  state.period=period;
+  const available=buildPeriods(period).map(p=>p.key);
+  state.periodKey=available.includes(periodKey)?periodKey:available[available.length-1];
+  state.agent=AGENT_NAMES.includes(agent)?agent:state.agent;
+  refreshPeriodPicker();refreshAgentPicker();render();
 }
 
 /* ══════════════════════ INIT ══════════════════════ */
 (async function init(){
   if(RASHWAN_PHOTO)document.getElementById('hd-lead-photo').src=RASHWAN_PHOTO;
-  await loadSheetData();
+
+  try{
+    const cached=JSON.parse(localStorage.getItem(SHEET_CACHE_KEY)||'null');
+    if(cached&&Array.isArray(cached.rows))applySheetRows(cached.rows,'cache');
+  }catch(_){}
+
   state.period='month';state.periodKey=monthKeys().slice(-1)[0];
   refreshPeriodPicker();refreshAgentPicker();render();
   loadPhotos();
+
+  const initial={period:state.period,periodKey:state.periodKey,agent:state.agent};
+  if(await loadSheetData())rerenderAfterSheetRefresh(initial.period,initial.periodKey,initial.agent);
+
   setInterval(async()=>{
-    const period=state.period,periodKey=state.periodKey,agent=state.agent;
-    if(await loadSheetData()){
-      state.period=period;
-      const available=buildPeriods(period).map(p=>p.key);
-      state.periodKey=available.includes(periodKey)?periodKey:available[available.length-1];
-      state.agent=AGENT_NAMES.includes(agent)?agent:state.agent;
-      refreshPeriodPicker();refreshAgentPicker();render();
-    }
+    const current={period:state.period,periodKey:state.periodKey,agent:state.agent};
+    if(await loadSheetData())rerenderAfterSheetRefresh(current.period,current.periodKey,current.agent);
   },60000);
 })();
 </script>
