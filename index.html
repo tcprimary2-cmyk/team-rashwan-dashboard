@@ -422,11 +422,11 @@ function monthsInRange(range){
 /* ══════════════════════ AGGREGATION ══════════════════════ */
 function inRange(d,r){return d>=r.start && d<=r.end;}
 function aggregate(range,name){
-  let calls=0,mtg=0,leads=0,courses=0;
-  for(const row of DAILY){ if(name&&row.n!==name)continue; if(!inRange(row.d,range))continue; calls+=row.c;mtg+=row.m;leads+=row.l;courses+=(row.q||0); }
+  let calls=0,mtg=0,leads=0;
+  for(const row of DAILY){ if(name&&row.n!==name)continue; if(!inRange(row.d,range))continue; calls+=row.c;mtg+=row.m;leads+=row.l; }
   let deals=0,rev=0,pending=0;
   for(const d of DEALS){ if(name&&d.name!==name)continue; if(!inRange(d.date,range))continue; deals++; if(d.aed)rev+=d.aed; else pending++; }
-  return {calls,mtg,deals,rev,pending,leads,courses};
+  return {calls,mtg,deals,rev,pending,leads};
 }
 function latestLeads(name,range){
   const rows=DAILY.filter(r=>r.n===name && inRange(r.d,range));
@@ -824,11 +824,11 @@ function applySheetRows(rows,source='live'){
   const mapped=rows.map(r=>({
     d:sheetDate(r.Date),n:String(r.Broker||'').trim(),c:sheetNumber(r['Total Calls']),
     m:sheetNumber(r.Meetings),k:sheetNumber(r['Closed Deal']),l:sheetNumber(r['Active Leads']),
-    q:sheetNumber(r['Courses Completed']),revenue:sheetNumber(r['AED Revenue'])
+    revenue:sheetNumber(r['AED Revenue'])
   })).filter(r=>r.d&&r.n);
   if(!mapped.length)throw new Error('No valid KPI rows returned');
 
-  DAILY=mapped.map(({d,n,c,m,k,l,q})=>({d,n,c,m,k,l,q})).sort((a,b)=>a.d.localeCompare(b.d)||a.n.localeCompare(b.n));
+  DAILY=mapped.map(({d,n,c,m,k,l})=>({d,n,c,m,k,l})).sort((a,b)=>a.d.localeCompare(b.d)||a.n.localeCompare(b.n));
   DEALS=[];
   mapped.forEach(r=>{for(let i=0;i<r.k;i++)DEALS.push({date:r.d,name:r.n,aed:i===0?r.revenue:0,confirmed:true});});
 
@@ -948,12 +948,15 @@ function rerenderAfterSheetRefresh(period,periodKey,agent){
   .rep-agent-tbl.with-courses th:nth-child(n+3){width:13.6%}
   .rep-tbl td.rev{color:#b5842a;font-weight:700}
   .rep-tbl tr.top td{background:#faf6ec}
+  .rep-course-input{width:54px;box-sizing:border-box;border:1px solid #d0d5dd;border-radius:6px;background:#fff;color:#101828;font:inherit;font-weight:600;text-align:right;padding:4px 6px;outline:none}
+  .rep-course-input:focus{border-color:#123a5e;box-shadow:0 0 0 2px rgba(18,58,94,.12)}
   .rep-foot{margin-top:24px;padding-top:12px;border-top:1px solid #e4e7ec;font-size:10px;color:#98a2b3;text-align:center;letter-spacing:.4px}
   @media print{
     body>*{display:none!important}
     #rep-overlay{display:block!important;position:static!important;background:#fff!important;padding:0!important;overflow:visible}
     #rep-overlay .rep-bar{display:none!important}
     .rep-paper{box-shadow:none!important;max-width:100%!important;border-radius:0!important}
+    .rep-course-input{border:0!important;box-shadow:none!important;background:transparent!important;padding:0!important}
     @page{margin:13mm}
   }`;
   const st=document.createElement('style');st.textContent=css;document.head.appendChild(st);
@@ -974,6 +977,16 @@ function rerenderAfterSheetRefresh(period,periodKey,agent){
     const d=Math.round((cur-prev)/prev*100);
     return ' · <b class="'+(d>0?'up':d<0?'dn':'')+'">'+(d>0?'▲':d<0?'▼':'±')+Math.abs(d)+'% vs prev</b>';
   }
+  const COURSE_STORE_KEY='team-rashwan-weekly-courses-v1';
+  function courseStore(){try{return JSON.parse(localStorage.getItem(COURSE_STORE_KEY)||'{}')||{};}catch(_){return {};}}
+  function courseValue(week,agent){return Math.max(0,Math.floor(Number(courseStore()[week]?.[agent])||0));}
+  function saveCourse(week,agent,value){
+    const saved=courseStore();
+    if(!saved[week])saved[week]={};
+    saved[week][agent]=Math.max(0,Math.floor(Number(value)||0));
+    try{localStorage.setItem(COURSE_STORE_KEY,JSON.stringify(saved));}catch(_){}
+  }
+
   function generate(period){
     const opt=latestOpt(period);const key=opt.key;const range=rangeOf(period,key);
     const agg=aggregate(range);
@@ -999,8 +1012,8 @@ function rerenderAfterSheetRefresh(period,periodKey,agent){
       </div>
       <div class="rep-h">Agent Leaderboard — ${opt.label}</div>
       <table class="rep-tbl rep-agent-tbl ${period==='week'?'with-courses':''}"><thead><tr><th>#</th><th>Agent</th><th class="n">Calls</th><th class="n">Meetings</th><th class="n">Deals</th><th class="n">Revenue (AED)</th>${period==='week'?'<th class="n">Courses</th>':''}</tr></thead><tbody>
-      ${rows.length?rows.map((a,i)=>`<tr class="${i===0?'top':''}"><td>${i+1}</td><td>${a.name}</td><td class="n">${num(a.calls)}</td><td class="n">${num(a.mtg)}</td><td class="n">${a.deals}</td><td class="n rev">${a.rev?num(a.rev):'—'}</td>${period==='week'?'<td class="n">'+num(a.courses)+'</td>':''}</tr>`).join(''):`<tr><td colspan="${period==='week'?7:6}" style="text-align:center;color:#98a2b3;padding:16px">No activity in this period.</td></tr>`}
-      <tr style="font-weight:700;background:#eef2f6"><td></td><td>TEAM TOTAL</td><td class="n">${num(agg.calls)}</td><td class="n">${num(agg.mtg)}</td><td class="n">${agg.deals}</td><td class="n rev">${num(agg.rev)}</td>${period==='week'?'<td class="n">'+num(agg.courses)+'</td>':''}</tr>
+      ${rows.length?rows.map((a,i)=>`<tr class="${i===0?'top':''}"><td>${i+1}</td><td>${a.name}</td><td class="n">${num(a.calls)}</td><td class="n">${num(a.mtg)}</td><td class="n">${a.deals}</td><td class="n rev">${a.rev?num(a.rev):'—'}</td>${period==='week'?'<td class="n"><input class="rep-course-input" type="number" min="0" step="1" inputmode="numeric" data-week="'+key+'" data-agent="'+encodeURIComponent(a.name)+'" value="'+courseValue(key,a.name)+'" aria-label="Courses completed"></td>':''}</tr>`).join(''):`<tr><td colspan="${period==='week'?7:6}" style="text-align:center;color:#98a2b3;padding:16px">No activity in this period.</td></tr>`}
+      <tr style="font-weight:700;background:#eef2f6"><td></td><td>TEAM TOTAL</td><td class="n">${num(agg.calls)}</td><td class="n">${num(agg.mtg)}</td><td class="n">${agg.deals}</td><td class="n rev">${num(agg.rev)}</td>${period==='week'?'<td class="n" id="rep-course-total">'+num(rows.reduce((sum,a)=>sum+courseValue(key,a.name),0))+'</td>':''}</tr>
       </tbody></table>
       <div class="rep-h">Deals Closed — ${dealsList.length} deal${dealsList.length===1?'':'s'}</div>
       <table class="rep-tbl"><thead><tr><th>Date</th><th>Agent</th><th class="n">Value (AED)</th></tr></thead><tbody>
@@ -1010,6 +1023,19 @@ function rerenderAfterSheetRefresh(period,periodKey,agent){
     let ov=document.getElementById('rep-overlay');
     if(!ov){ov=document.createElement('div');ov.id='rep-overlay';document.body.appendChild(ov);ov.onclick=e=>{if(e.target===ov)ov.classList.remove('show');};}
     ov.innerHTML=`<div class="rep-paper"><div class="rep-bar"><div class="t">${PLBL[period]} Report · ${opt.label}</div><div class="btns"><button class="rep-print" onclick="window.print()">🖨 Print / Save as PDF</button><button class="rep-close" onclick="document.getElementById('rep-overlay').classList.remove('show')">✕ Close</button></div></div><div class="rep-body">${body}</div></div>`;
+    if(period==='week'){
+      const inputs=[...ov.querySelectorAll('.rep-course-input')];
+      const updateCourseTotal=()=>{
+        const total=inputs.reduce((sum,input)=>sum+(Math.max(0,Math.floor(Number(input.value)||0))),0);
+        const totalCell=ov.querySelector('#rep-course-total');if(totalCell)totalCell.textContent=num(total);
+      };
+      inputs.forEach(input=>input.addEventListener('input',()=>{
+        const value=Math.max(0,Math.floor(Number(input.value)||0));
+        input.value=value;
+        saveCourse(input.dataset.week,decodeURIComponent(input.dataset.agent),value);
+        updateCourseTotal();
+      }));
+    }
     ov.classList.add('show');ov.scrollTop=0;
   }
   const btn=document.getElementById('rep-btn'),menu=document.getElementById('rep-menu');
