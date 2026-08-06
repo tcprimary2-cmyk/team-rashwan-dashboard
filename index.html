@@ -944,19 +944,20 @@ function rerenderAfterSheetRefresh(period,periodKey,agent){
   .rep-agent-tbl th:nth-child(1){width:7%}
   .rep-agent-tbl th:nth-child(2){width:28%}
   .rep-agent-tbl th:nth-child(n+3){width:16.25%}
-  .rep-agent-tbl.with-courses th:nth-child(2){width:25%}
-  .rep-agent-tbl.with-courses th:nth-child(n+3){width:13.6%}
+  .rep-agent-tbl.with-courses th:nth-child(1){width:6%}
+  .rep-agent-tbl.with-courses th:nth-child(2){width:22%}
+  .rep-agent-tbl.with-courses th:nth-child(n+3){width:12%}
   .rep-tbl td.rev{color:#b5842a;font-weight:700}
   .rep-tbl tr.top td{background:#faf6ec}
-  .rep-course-input{width:54px;box-sizing:border-box;border:1px solid #d0d5dd;border-radius:6px;background:#fff;color:#101828;font:inherit;font-weight:600;text-align:right;padding:4px 6px;outline:none}
-  .rep-course-input:focus{border-color:#123a5e;box-shadow:0 0 0 2px rgba(18,58,94,.12)}
+  .rep-course-input,.rep-proposal-input{width:50px;box-sizing:border-box;border:1px solid #d0d5dd;border-radius:6px;background:#fff;color:#101828;font:inherit;font-weight:600;text-align:right;padding:4px 6px;outline:none}
+  .rep-course-input:focus,.rep-proposal-input:focus{border-color:#123a5e;box-shadow:0 0 0 2px rgba(18,58,94,.12)}
   .rep-foot{margin-top:24px;padding-top:12px;border-top:1px solid #e4e7ec;font-size:10px;color:#98a2b3;text-align:center;letter-spacing:.4px}
   @media print{
     body>*{display:none!important}
     #rep-overlay{display:block!important;position:static!important;background:#fff!important;padding:0!important;overflow:visible}
     #rep-overlay .rep-bar{display:none!important}
     .rep-paper{box-shadow:none!important;max-width:100%!important;border-radius:0!important}
-    .rep-course-input{border:0!important;box-shadow:none!important;background:transparent!important;padding:0!important}
+    .rep-course-input,.rep-proposal-input{border:0!important;box-shadow:none!important;background:transparent!important;padding:0!important}
     @page{margin:13mm}
   }`;
   const st=document.createElement('style');st.textContent=css;document.head.appendChild(st);
@@ -986,6 +987,15 @@ function rerenderAfterSheetRefresh(period,periodKey,agent){
     saved[week][agent]=Math.max(0,Math.floor(Number(value)||0));
     try{localStorage.setItem(COURSE_STORE_KEY,JSON.stringify(saved));}catch(_){}
   }
+  const PROPOSAL_STORE_KEY='team-rashwan-weekly-proposals-v1';
+  function proposalStore(){try{return JSON.parse(localStorage.getItem(PROPOSAL_STORE_KEY)||'{}')||{};}catch(_){return {};}}
+  function proposalValue(week,agent){return Math.max(0,Math.floor(Number(proposalStore()[week]?.[agent])||0));}
+  function saveProposal(week,agent,value){
+    const saved=proposalStore();
+    if(!saved[week])saved[week]={};
+    saved[week][agent]=Math.max(0,Math.floor(Number(value)||0));
+    try{localStorage.setItem(PROPOSAL_STORE_KEY,JSON.stringify(saved));}catch(_){}
+  }
 
   function generate(period){
     const opt=latestOpt(period);const key=opt.key;const range=rangeOf(period,key);
@@ -1011,9 +1021,9 @@ function rerenderAfterSheetRefresh(period,periodKey,agent){
         <div class="rep-k"><div class="l">Revenue</div><div class="v" style="color:#b5842a">${fFull(agg.rev)}</div><div class="d">of ${fFull(tRev)} target${repDelta(agg.rev,prev&&prev.rev)}</div></div>
       </div>
       <div class="rep-h">Agent Leaderboard — ${opt.label}</div>
-      <table class="rep-tbl rep-agent-tbl ${period==='week'?'with-courses':''}"><thead><tr><th>#</th><th>Agent</th><th class="n">Calls</th><th class="n">Meetings</th><th class="n">Deals</th><th class="n">Revenue (AED)</th>${period==='week'?'<th class="n">Courses</th>':''}</tr></thead><tbody>
-      ${rows.length?rows.map((a,i)=>`<tr class="${i===0?'top':''}"><td>${i+1}</td><td>${a.name}</td><td class="n">${num(a.calls)}</td><td class="n">${num(a.mtg)}</td><td class="n">${a.deals}</td><td class="n rev">${a.rev?num(a.rev):'—'}</td>${period==='week'?'<td class="n"><input class="rep-course-input" type="number" min="0" step="1" inputmode="numeric" data-week="'+key+'" data-agent="'+encodeURIComponent(a.name)+'" value="'+courseValue(key,a.name)+'" aria-label="Courses completed"></td>':''}</tr>`).join(''):`<tr><td colspan="${period==='week'?7:6}" style="text-align:center;color:#98a2b3;padding:16px">No activity in this period.</td></tr>`}
-      <tr style="font-weight:700;background:#eef2f6"><td></td><td>TEAM TOTAL</td><td class="n">${num(agg.calls)}</td><td class="n">${num(agg.mtg)}</td><td class="n">${agg.deals}</td><td class="n rev">${num(agg.rev)}</td>${period==='week'?'<td class="n" id="rep-course-total">'+num(rows.reduce((sum,a)=>sum+courseValue(key,a.name),0))+'</td>':''}</tr>
+      <table class="rep-tbl rep-agent-tbl ${period==='week'?'with-courses':''}"><thead><tr><th>#</th><th>Agent</th><th class="n">Calls</th><th class="n">Meetings</th><th class="n">Deals</th><th class="n">Revenue (AED)</th>${period==='week'?'<th class="n">Courses</th><th class="n">Proposals</th>':''}</tr></thead><tbody>
+      ${rows.length?rows.map((a,i)=>`<tr class="${i===0?'top':''}"><td>${i+1}</td><td>${a.name}</td><td class="n">${num(a.calls)}</td><td class="n">${num(a.mtg)}</td><td class="n">${a.deals}</td><td class="n rev">${a.rev?num(a.rev):'—'}</td>${period==='week'?'<td class="n"><input class="rep-course-input" type="number" min="0" step="1" inputmode="numeric" data-week="'+key+'" data-agent="'+encodeURIComponent(a.name)+'" value="'+courseValue(key,a.name)+'" aria-label="Courses completed"></td><td class="n"><input class="rep-proposal-input" type="number" min="0" step="1" inputmode="numeric" data-week="'+key+'" data-agent="'+encodeURIComponent(a.name)+'" value="'+proposalValue(key,a.name)+'" aria-label="Proposals sent"></td>':''}</tr>`).join(''):`<tr><td colspan="${period==='week'?8:6}" style="text-align:center;color:#98a2b3;padding:16px">No activity in this period.</td></tr>`}
+      <tr style="font-weight:700;background:#eef2f6"><td></td><td>TEAM TOTAL</td><td class="n">${num(agg.calls)}</td><td class="n">${num(agg.mtg)}</td><td class="n">${agg.deals}</td><td class="n rev">${num(agg.rev)}</td>${period==='week'?'<td class="n" id="rep-course-total">'+num(rows.reduce((sum,a)=>sum+courseValue(key,a.name),0))+'</td><td class="n" id="rep-proposal-total">'+num(rows.reduce((sum,a)=>sum+proposalValue(key,a.name),0))+'</td>':''}</tr>
       </tbody></table>
       <div class="rep-h">Deals Closed — ${dealsList.length} deal${dealsList.length===1?'':'s'}</div>
       <table class="rep-tbl"><thead><tr><th>Date</th><th>Agent</th><th class="n">Value (AED)</th></tr></thead><tbody>
@@ -1034,6 +1044,17 @@ function rerenderAfterSheetRefresh(period,periodKey,agent){
         input.value=value;
         saveCourse(input.dataset.week,decodeURIComponent(input.dataset.agent),value);
         updateCourseTotal();
+      }));
+      const proposalInputs=[...ov.querySelectorAll('.rep-proposal-input')];
+      const updateProposalTotal=()=>{
+        const total=proposalInputs.reduce((sum,input)=>sum+(Math.max(0,Math.floor(Number(input.value)||0))),0);
+        const totalCell=ov.querySelector('#rep-proposal-total');if(totalCell)totalCell.textContent=num(total);
+      };
+      proposalInputs.forEach(input=>input.addEventListener('input',()=>{
+        const value=Math.max(0,Math.floor(Number(input.value)||0));
+        input.value=value;
+        saveProposal(input.dataset.week,decodeURIComponent(input.dataset.agent),value);
+        updateProposalTotal();
       }));
     }
     ov.classList.add('show');ov.scrollTop=0;
