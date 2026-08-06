@@ -807,6 +807,16 @@ async function loadPhotos(){
 }
 
 /* ══════════════════════ GOOGLE SHEETS LIVE DATA ══════════════════════ */
+const EXCLUDED_AGENTS=new Set(['suzan','magdalena','ali','baraa','osman']);
+function isExcludedAgent(name){return EXCLUDED_AGENTS.has(String(name||'').trim().toLowerCase());}
+function removeExcludedAgents(){
+  DAILY=DAILY.filter(r=>!isExcludedAgent(r.n));
+  DEALS=DEALS.filter(d=>!isExcludedAgent(d.name));
+  ROSTER=ROSTER.filter(r=>!isExcludedAgent(r.name));
+  AGENT_NAMES=ROSTER.map(r=>r.name);
+  allDates=DAILY.map(r=>r.d).concat(DEALS.map(d=>d.date)).sort();
+  if(allDates.length){MIND=parseD(allDates[0]);MAXD=parseD(allDates[allDates.length-1]);}
+}
 function sheetNumber(v){const n=Number(String(v??'').replace(/[^0-9.-]/g,''));return Number.isFinite(n)?n:0;}
 function sheetDate(v){
   let value=String(v).trim();
@@ -825,7 +835,7 @@ function applySheetRows(rows,source='live'){
     d:sheetDate(r.Date),n:String(r.Broker||'').trim(),c:sheetNumber(r['Total Calls']),
     m:sheetNumber(r.Meetings),k:sheetNumber(r['Closed Deal']),l:sheetNumber(r['Active Leads']),
     revenue:sheetNumber(r['AED Revenue'])
-  })).filter(r=>r.d&&r.n);
+  })).filter(r=>r.d&&r.n&&!isExcludedAgent(r.n));
   if(!mapped.length)throw new Error('No valid KPI rows returned');
 
   DAILY=mapped.map(({d,n,c,m,k,l})=>({d,n,c,m,k,l})).sort((a,b)=>a.d.localeCompare(b.d)||a.n.localeCompare(b.n));
@@ -884,6 +894,7 @@ function rerenderAfterSheetRefresh(period,periodKey,agent){
 /* ══════════════════════ INIT ══════════════════════ */
 (async function init(){
   if(RASHWAN_PHOTO)document.getElementById('hd-lead-photo').src=RASHWAN_PHOTO;
+  removeExcludedAgents();
 
   try{
     const cached=JSON.parse(localStorage.getItem(SHEET_CACHE_KEY)||'null');
