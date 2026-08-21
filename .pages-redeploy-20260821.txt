@@ -1,0 +1,1 @@
+Force GitHub Pages rebuild from stable monthly-report commit fa6fa4b7f29862227104b45abe52d59b11a5c6cd.
