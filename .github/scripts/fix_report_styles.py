@@ -48,3 +48,4 @@ css=r'''  /* REPORT STYLE COMPATIBILITY FIX V3 */
 s=s.replace(anchor,css+anchor,1)
 p.write_text(s,encoding='utf-8')
 print('report style compatibility CSS added')
+# trigger push workflow
