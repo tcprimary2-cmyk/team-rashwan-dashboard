@@ -1,0 +1,37 @@
+name: Apply report style fix on main
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-report-style-fix-main.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Patch report styles
+        run: python .github/scripts/apply_report_style_fix_main.py
+      - name: Validate JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',s,flags=re.S|re.I)
+          js='\n'.join(x for x in scripts if 'application/json' not in x[:200])
+          Path('/tmp/dashboard.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/dashboard.js
+      - name: Commit fix and self-clean
+        run: |
+          rm -f .github/scripts/apply_report_style_fix_main.py .github/workflows/apply-report-style-fix-main.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Fix performance report styling [skip ci]"
+          git push
