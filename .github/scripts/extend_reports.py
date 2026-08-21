@@ -44,6 +44,14 @@ new_code = r'''
     }
     return out;
   }
+  function openPerformanceOverlay(body,period,optLabel,individualName){
+    let ov=document.getElementById('rep-overlay');
+    if(!ov){ov=document.createElement('div');ov.id='rep-overlay';document.body.appendChild(ov);ov.onclick=e=>{if(e.target===ov)ov.classList.remove('show');};}
+    const pLabel=period.charAt(0).toUpperCase()+period.slice(1);
+    const scope=individualName?individualName:'All Active Agents';
+    ov.innerHTML=`<div class="rep-paper"><div class="rep-bar"><div class="t">${esc(pLabel)} Report · ${esc(optLabel)} · ${esc(scope)}</div><div class="btns"><button class="rep-print" onclick="window.print()">🖨 Print / Save as PDF</button><button class="rep-close" onclick="document.getElementById('rep-overlay').classList.remove('show')">✕ Close</button></div></div><div class="rep-body">${body}</div></div>`;
+    ov.classList.add('show');ov.scrollTop=0;
+  }
   function generatePerformanceReport(period,individualOnly){
     const opt=selectedPeriodOpt(period);if(!opt)return;
     const range=rangeOf(period,opt.key),isIndividual=!!individualOnly;
@@ -55,7 +63,7 @@ new_code = r'''
     const allRows=activeAgents(range).map(name=>({name,...aggregate(range,name)}));
     const team=aggregate(range),teamFactor=teamTargetFactor(period,range);
     const tCalls=Math.round(T.callsPerMonth*teamFactor),tMtg=Math.round(T.meetingsPerMonth*teamFactor),tRev=Math.round(T.revenuePerMonth*teamFactor);
-    const dealsList=DEALS.filter(d=>inRange(d.date,range)&&(isIndividual?d.agent===state.agent:true)).sort((a,b)=>a.date<b.date?1:-1);
+    const dealsList=DEALS.filter(d=>inRange(d.date,range)&&(isIndividual?d.name===state.agent:true)).sort((a,b)=>a.date<b.date?1:-1);
     const generated=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
     const ach=(actual,target)=>`<span class="rep-ach ${achievementClass(achievement(actual,target))}">${achievement(actual,target)}%</span>`;
     const periodName=period.charAt(0).toUpperCase()+period.slice(1);
@@ -74,7 +82,7 @@ new_code = r'''
         </div>
         <div class="rep-two-col">
           <div class="rep-card"><h3>Leaderboard</h3><table><thead><tr><th>#</th><th>Agent</th><th>Calls</th><th>Meetings</th><th>Deals</th><th>Revenue</th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td><td><b>${esc(r.name)}</b></td><td>${fNum(r.calls)}</td><td>${fNum(r.mtg)}</td><td>${fNum(r.deals)}</td><td>${fAED(r.rev)}</td></tr>`).join('')}</tbody></table></div>
-          <div class="rep-card"><h3>Deals Closed</h3>${dealsList.length?`<table><thead><tr><th>Date</th><th>Agent</th><th>Revenue</th></tr></thead><tbody>${dealsList.map(d=>`<tr><td>${reportDateLabel(d.date)}</td><td>${esc(d.agent||'—')}</td><td>${d.aed?fAED(d.aed):'Pending'}</td></tr>`).join('')}</tbody></table>`:'<div class="rep-empty">No closed deals in this period.</div>'}</div>
+          <div class="rep-card"><h3>Deals Closed</h3>${dealsList.length?`<table><thead><tr><th>Date</th><th>Agent</th><th>Revenue</th></tr></thead><tbody>${dealsList.map(d=>`<tr><td>${reportDateLabel(d.date)}</td><td>${esc(d.name||'—')}</td><td>${d.aed?fAED(d.aed):'Pending'}</td></tr>`).join('')}</tbody></table>`:'<div class="rep-empty">No closed deals in this period.</div>'}</div>
         </div>
       </section>`;
     }
@@ -82,7 +90,7 @@ new_code = r'''
       const factor=targetFactor(r.name,period,range),callsTarget=Math.round(T.callsPerMonth*factor),mtgTarget=Math.round(T.meetingsPerMonth*factor),revTarget=Math.round(T.revenuePerMonth*factor);
       const meta=(typeof AGENT_META!=='undefined'&&AGENT_META[r.name])||{};
       const callsToMtg=r.calls?r.mtg/r.calls*100:0,mtgToDeals=r.mtg?r.deals/r.mtg*100:0,callsToDeals=r.calls?r.deals/r.calls*100:0,revPerDeal=r.deals?r.rev/r.deals:0;
-      const weeklyRows=breakdown.map(b=>{const a=aggregate({start:b.start,end:b.end},r.name);return `<tr><td><b>${esc(b.label)}</b><div class="rep-mini-date">${esc(reportDateLabel(b.start))}${b.end!==b.start?' – '+esc(reportDateLabel(b.end)):''}</div></td><td>${fNum(a.calls)}</td><td>${fNum(a.mtg)}</td><td>${fNum(a.deals)}</td><td>${fAED(a.rev)}</td></tr>`;}).join('');
+      const breakdownRows=breakdown.map(b=>{const a=aggregate({start:b.start,end:b.end},r.name);return `<tr><td><b>${esc(b.label)}</b><div class="rep-mini-date">${esc(reportDateLabel(b.start))}${b.end!==b.start?' – '+esc(reportDateLabel(b.end)):''}</div></td><td>${fNum(a.calls)}</td><td>${fNum(a.mtg)}</td><td>${fNum(a.deals)}</td><td>${fAED(a.rev)}</td></tr>`;}).join('');
       return `<section class="rep-monthly-agent">
         <div class="rep-agent-head">${agentPhotoHTML(r.name)}<div><div class="rep-section-kicker">${isIndividual?'INDIVIDUAL':'AGENT'} PERFORMANCE REPORT</div><h2>${esc(r.name)}</h2><div class="rep-sub">${esc(meta.role||'Sales Agent')} · ${esc(opt.label)} · ${esc(dateRange)}</div></div></div>
         <div class="rep-kpi-grid">
@@ -96,12 +104,11 @@ new_code = r'''
           <div class="rep-card"><h3>Conversion & Efficiency</h3><div class="rep-metric-grid"><div><span>Calls → Meetings</span><b>${fPct(callsToMtg)}</b></div><div><span>Meetings → Deals</span><b>${fPct(mtgToDeals)}</b></div><div><span>Calls → Deals</span><b>${fPct(callsToDeals)}</b></div><div><span>Revenue / Deal</span><b>${r.deals?fAED(revPerDeal):'—'}</b></div></div></div>
           <div class="rep-card"><h3>Team Rankings</h3><div class="rep-metric-grid"><div><span>Revenue</span><b>#${rankFor(allRows,r.name,'rev')}</b></div><div><span>Deals</span><b>#${rankFor(allRows,r.name,'deals')}</b></div><div><span>Calls</span><b>#${rankFor(allRows,r.name,'calls')}</b></div><div><span>Meetings</span><b>#${rankFor(allRows,r.name,'mtg')}</b></div></div></div>
         </div>
-        <div class="rep-card"><h3>${period==='week'?'Daily':period==='month'?'Weekly':'Monthly'} Breakdown</h3><table><thead><tr><th>Period</th><th>Calls</th><th>Meetings</th><th>Deals</th><th>Revenue</th></tr></thead><tbody>${weeklyRows}</tbody></table></div>
+        <div class="rep-card"><h3>${period==='week'?'Daily':period==='month'?'Weekly':'Monthly'} Breakdown</h3><table><thead><tr><th>Period</th><th>Calls</th><th>Meetings</th><th>Deals</th><th>Revenue</th></tr></thead><tbody>${breakdownRows}</tbody></table></div>
       </section>`;
     }).join('');
-    openMonthlyOverlay(summary+agentSections,(isIndividual?rtrimAgentLabel(state.agent,opt.label):opt.label));
+    openPerformanceOverlay(summary+agentSections,period,opt.label,isIndividual?state.agent:null);
   }
-  function rtrimAgentLabel(name,label){return name+' · '+label;}
 '''
 
 s = s.replace(insert_at, '\n'+new_code+insert_at, 1)
@@ -117,11 +124,11 @@ new_update = '''  function updateReportButton(){
     mainBtn.style.display='inline-flex';
     if(typeof state==='undefined'){mainBtn.textContent='▣ Generate Report';return;}
     const supported=['week','month','quarter','year'];
-    if(state.view==='individual'){
+    if(state.view==='individual'&&supported.includes(state.period)){
       const opt=selectedPeriodOpt(state.period);
       mainBtn.textContent='▣ Generate '+(state.agent||'Agent')+' Report';
       mainBtn.title=opt?'Generate '+opt.label+' individual performance report':'Generate individual performance report';
-    }else if(supported.includes(state.period)){
+    }else if(state.view==='team'&&supported.includes(state.period)){
       const opt=selectedPeriodOpt(state.period);
       mainBtn.textContent='▣ Generate '+(opt?opt.label:(state.period.charAt(0).toUpperCase()+state.period.slice(1)))+' Report';
       mainBtn.title='Generate complete '+state.period+' performance report';
@@ -151,7 +158,6 @@ if old_click not in s:
     raise SystemExit('report button click block not found')
 s = s.replace(old_click,new_click,1)
 
-# Ensure report button label refreshes after switching Team/Individual/Compare and agent selection.
 view_anchor = '''function setView(v){
   state.view=v;
   document.querySelectorAll('#view-seg button').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
@@ -163,10 +169,25 @@ view_new = '''function setView(v){
   document.querySelectorAll('#view-seg button').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
   refreshAgentPicker();
   render();
-  setTimeout(()=>{try{document.getElementById('period-pick')?.dispatchEvent(new Event('change'));}catch(e){}},0);
+  if(typeof updateReportButton==='function')updateReportButton();
 }'''
-if view_anchor in s:
-    s=s.replace(view_anchor,view_new,1)
+if view_anchor not in s:
+    raise SystemExit('setView block not found')
+s=s.replace(view_anchor,view_new,1)
+
+handlers_old = '''document.getElementById('period-seg').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  state.period=b.dataset.p;document.querySelectorAll('#period-seg button').forEach(x=>x.classList.toggle('on',x.dataset.p===state.period));
+  refreshPeriodPicker();render();};
+document.getElementById('period-pick').onchange=e=>{state.periodKey=e.target.value;render();};
+document.getElementById('agent-pick').onchange=e=>{state.agent=e.target.value;render();};'''
+handlers_new = '''document.getElementById('period-seg').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  state.period=b.dataset.p;document.querySelectorAll('#period-seg button').forEach(x=>x.classList.toggle('on',x.dataset.p===state.period));
+  refreshPeriodPicker();render();if(typeof updateReportButton==='function')updateReportButton();};
+document.getElementById('period-pick').onchange=e=>{state.periodKey=e.target.value;render();if(typeof updateReportButton==='function')updateReportButton();};
+document.getElementById('agent-pick').onchange=e=>{state.agent=e.target.value;render();if(typeof updateReportButton==='function')updateReportButton();};'''
+if handlers_old not in s:
+    raise SystemExit('period/agent handler block not found')
+s=s.replace(handlers_old,handlers_new,1)
 
 p.write_text(s,encoding='utf-8')
 print('patched', len(s))
