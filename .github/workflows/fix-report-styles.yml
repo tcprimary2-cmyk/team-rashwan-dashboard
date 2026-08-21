@@ -1,0 +1,38 @@
+name: Fix report styles
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-report-styles.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Apply report style fix
+        run: python .github/scripts/fix_report_styles.py
+      - name: Validate JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',s,flags=re.S|re.I)
+          js='\n'.join(x for x in scripts if 'application/json' not in x[:200])
+          Path('/tmp/dashboard.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/dashboard.js
+      - name: Clean helpers and commit
+        run: |
+          rm -f .github/scripts/fix_report_styles.py .github/workflows/fix-report-styles.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Restore polished performance report styling [skip ci]"
+          git push
