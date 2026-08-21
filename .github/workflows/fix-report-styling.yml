@@ -1,9 +1,10 @@
 name: Fix report styling
 on:
   push:
-    branches: [fix-report-styling]
+    branches: [main]
     paths:
       - '.github/workflows/fix-report-styling.yml'
+      - '.github/scripts/fix_report_styles.py'
   workflow_dispatch:
 permissions:
   contents: write
